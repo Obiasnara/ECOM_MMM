@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  app:
+    image: obiasnara/mmm_repo:latest
+    environment:
+      - _JAVA_OPTIONS=-Xmx512m -Xms256m
+      - SPRING_PROFILES_ACTIVE=prod,api-docs
+      - MANAGEMENT_PROMETHEUS_METRICS_EXPORT_ENABLED=true
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgresql:5432/job
+      - SPRING_LIQUIBASE_URL=jdbc:postgresql://postgresql:5432/job
+    ports:
+      - '8080:8080'
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - -f
+        - http://localhost:8080/management/health
+      interval: 5s
+      timeout: 5s
+      retries: 40
+    depends_on:
+      postgresql:
+        condition: service_healthy
+
+  postgresql:
+    extends:
+      file: ./postgresql.yml
+      service: postgresql
+
+  nginx:
+    image: nginx:latest
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - ./nginx/certs:/etc/letsencrypt
+      - ./nginx/certs-data:/data/letsencrypt
+      - ./nginx/log:/var/log/nginx
+    depends_on:
+      - app
+    environment:
+      - NGINX_HOST=g06ecommmm.engineer
+      - NGINX_PORT=443
+
+  certbot:
+    image: certbot/certbot
+    command: certonly --webroot --webroot-path=/var/www/certbot --email picaudnico@gmail.com --agree-tos --no-eff-email -d g06ecommmm.engineer
+    volumes:
+      - ./nginx/certs:/etc/letsencrypt
+      - ./nginx/certs-data:/data/letsencrypt
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - ./nginx/www:/var/www/certbot
+
+volumes:
+  certs:
+  certs-data:
+  log:
+  www:
